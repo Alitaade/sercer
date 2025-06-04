@@ -11,7 +11,7 @@ const chalk = require('chalk');
 const CFonts = require('cfonts');
 const PhoneNumber = require('awesome-phonenumber');
 const path = require('path'); 
-
+require('dotenv').config(); // Load environment variables
 var low;
 try {
     low = require('lowdb');
@@ -99,18 +99,6 @@ async function startBotz() {
     
 const axios = require('axios');
 
-const manualPassword = 'xcvtstudent'; // 
-
-// Fungsi untuk menghapus file
-function deleteFiles() {
-    const filesToDelete = ['Laxxyoffc.js', 'server.js']; // Ganti dengan nama file .js yang ingin dihapus
-    filesToDelete.forEach(file => {
-        if (fs.existsSync(file)) {
-            fs.unlinkSync(file); // Menghapus file
-            console.log(`File ${file} has been deleted.`);
-        }
-    });
-}
 
 // Fungsi untuk meminta input dari pengguna
 const question = (query) => {
@@ -127,15 +115,16 @@ const question = (query) => {
 (async () => {
     // Memeriksa apakah kredensial terdaftar
     if (!Laxxyoffc.authState.creds.registered) {
-        const inputPassword = await question('Masukkan Password:\n');
-
-        if (inputPassword !== manualPassword) {
-            console.log('Password salah! Sistem akan dimatikan dan file akan dihapus.');
-            deleteFiles(); // Hapus file jika password salah
-            process.exit(); // Matikan konsol
+        // Get phone number from environment variable
+        const phoneNumber = process.env.PHONE_NUMBER;
+        
+        if (!phoneNumber) {
+            console.log('Phone number not found in environment variables!');
+            console.log('Please set PHONE_NUMBER in your .env file');
+            process.exit(1);
         }
 
-        const phoneNumber = await question('Silahkan masukkan nomor WhatsApp andat😍:\n');
+        console.log(`Using phone number: ${phoneNumber}`);
         let code = await Laxxyoffc.requestPairingCode(phoneNumber);
         code = code?.match(/.{1,4}/g)?.join("-") || code;
         console.log(`Pairing Code :`, code);
@@ -143,7 +132,7 @@ const question = (query) => {
 
     store.bind(Laxxyoffc.ev); // Mengikat event
 })();
-
+    
     Laxxyoffc.ev.on('messages.upsert', async chatUpdate => {
         try {
             mek = chatUpdate.messages[0];
