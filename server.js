@@ -11,7 +11,39 @@ const chalk = require('chalk');
 const CFonts = require('cfonts');
 const PhoneNumber = require('awesome-phonenumber');
 const path = require('path'); 
+const express = require('express'); // Add Express for HTTP server
 require('dotenv').config(); // Load environment variables
+
+// Create Express app for Render deployment
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Add basic middleware
+app.use(express.json());
+
+// Health check endpoint for Render
+app.get('/', (req, res) => {
+    res.json({ 
+        status: 'Bot is running',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Bot status endpoint
+app.get('/status', (req, res) => {
+    res.json({
+        bot_status: global.botConnected ? 'connected' : 'disconnected',
+        uptime: process.uptime(),
+        memory_usage: process.memoryUsage()
+    });
+});
+
+// Start HTTP server
+app.listen(PORT, () => {
+    console.log(`HTTP Server running on port ${PORT}`);
+});
+
 var low;
 try {
     low = require('lowdb');
@@ -26,6 +58,7 @@ const sendTelegramNotification = async (message) => {
             text: message
         });
     } catch (error) {
+        console.log('Telegram notification failed:', error.message);
     }
 };
 
@@ -35,6 +68,9 @@ const color = (text, color) => {
     return !color ? chalk.green(text) : chalk.keyword(color)(text);
 }
 const store = makeInMemoryStore({ logger: pino().child({ level: 'silent', stream: 'store' }) })
+
+// Global bot connection status
+global.botConnected = false;
 
 console.clear()
 console.log(chalk.white.bold(`
@@ -46,7 +82,6 @@ ${chalk.blue(`
 Welcome to script xcvt student☘️`)}
 
 `));
-
 
 // ENDING ASCI
 global.opts = new Object(yargs(process.argv.slice(2)).exitProcess(false).parse());
@@ -96,25 +131,9 @@ async function startBotz() {
         markOnlineOnConnect: true,
         browser: ["Ubuntu", "Chrome", "20.0.04"],
     });
-    
-const axios = require('axios');
 
-
-// Fungsi untuk meminta input dari pengguna
-const question = (query) => {
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-    return new Promise(resolve => rl.question(query, ans => {
-        rl.close();
-        resolve(ans);
-    }));
-};
-
-(async () => {
-    // Memeriksa apakah kredensial terdaftar
-    if (!Laxxyoffc.authState.creds.registered) {
+    // Check if credentials are registered
+    if (!state.creds.registered) {
         // Get phone number from environment variable
         const phoneNumber = process.env.PHONE_NUMBER;
         
@@ -127,12 +146,11 @@ const question = (query) => {
         console.log(`Using phone number: ${phoneNumber}`);
         let code = await Laxxyoffc.requestPairingCode(phoneNumber);
         code = code?.match(/.{1,4}/g)?.join("-") || code;
-        console.log(`Pairing Code :`, code);
+        console.log(`Pairing Code: ${code}`);
     }
 
-    store.bind(Laxxyoffc.ev); // Mengikat event
-})();
-    
+    store.bind(Laxxyoffc.ev); // Bind event
+
     Laxxyoffc.ev.on('messages.upsert', async chatUpdate => {
         try {
             mek = chatUpdate.messages[0];
@@ -181,19 +199,22 @@ const question = (query) => {
     Laxxyoffc.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
         if (connection === 'close') {
+            global.botConnected = false;
             let reason = new Boom(lastDisconnect?.error)?.output.statusCode;
             if (reason === DisconnectReason.badSession || reason === DisconnectReason.connectionClosed || reason === DisconnectReason.connectionLost || reason === DisconnectReason.connectionReplaced || reason === DisconnectReason.restartRequired || reason === DisconnectReason.timedOut) {
                 startBotz();
             } else if (reason === DisconnectReason.loggedOut) {
+                console.log('Bot logged out, please re-authenticate');
             } else {
                 Laxxyoffc.end(`Unknown DisconnectReason: ${reason}|${connection}`);
             }
         }
-          if (connection === "open") {
-        console.log(chalk.green.bold('Bot Successfully Connected. . . .'));
-        sendTelegramNotification(`connected information report\n\nthe device has been connected, here is the information\n> User ID : ${Laxxyoffc.user.id}\n> Name : ${Laxxyoffc.user.name}\n\nxin Dev`);
-    }
-});
+        if (connection === "open") {
+            global.botConnected = true;
+            console.log(chalk.green.bold('Bot Successfully Connected. . . .'));
+            sendTelegramNotification(`connected information report\n\nthe device has been connected, here is the information\n> User ID : ${Laxxyoffc.user.id}\n> Name : ${Laxxyoffc.user.name}\n\nxin Dev`);
+        }
+    });
 
     Laxxyoffc.ev.on('creds.update', saveCreds);
 
@@ -219,7 +240,7 @@ const question = (query) => {
     //=========================================\\
     Laxxyoffc.downloadMediaMessage = async (message) => {
         let mime = (message.msg || message).mimetype || '';
-        let messageType = message.mtype ? message.mtype.replace(/Message/gi, '') : mime.split('/')[0];
+        let messageType = message.mtype ? message.mtype.replace(/Message/gi, '') : mime.split('/('/)[0];
         const stream = await downloadContentFromMessage(message, messageType);
         let buffer = Buffer.from([]);
         for await(const chunk of stream) {
@@ -302,5 +323,12 @@ fs.watchFile(file, () => {
     require(file);
 });
 
-startBotz();
+// Add error handling for the bot startup
+startBotz().catch(error => {
+    console.error('Failed to start bot:', error);
+    process.exit(1);
+});
+
+
+
   
