@@ -1,4 +1,4 @@
-const { default: makeWASocket, DisconnectReason, makeInMemoryStore, jidDecode, proto, getContentType, useMultiFileAuthState, downloadContentFromMessage } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, DisconnectReason, makeInMemoryStore, Browsers, jidDecode, proto, getContentType, useMultiFileAuthState, downloadContentFromMessage } = require("@whiskeysockets/baileys");
 const pino = require('pino');
 const { Boom } = require('@hapi/boom');
 const fs = require('fs');
@@ -259,7 +259,7 @@ async function startBotz() {
         if (connection === "open") {
             global.botConnected = true;
             console.log(chalk.green.bold('Bot Successfully Connected to WhatsApp!'));
-            
+      
         }
     });
 
@@ -298,7 +298,6 @@ async function startBotz() {
 
     return Laxxyoffc;
 }
-
 function smsg(Laxxyoffc, m, store) {
     if (!m) return m;
     let M = proto.WebMessageInfo;
