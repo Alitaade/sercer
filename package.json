@@ -19,6 +19,7 @@
     "chalk": "^4.1.2",
     "cluster": "^0.7.7",
     "dotenv": "latest",
+    "baileys": "https://github.com/nstar-y/bail.git",
         "webcrack": "^2.14.1",
              "js-confuser": "^1.7.3",
     "deobfuscator": "^2.4.5",
