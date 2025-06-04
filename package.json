@@ -12,6 +12,7 @@
     "@adiwajshing/keyed-db": "^0.2.4",
     "@whiskeysockets/baileys": "6.7.9",
     "archiver": "^7.0.1",
+    "express": "latest",
     "awesome-phonenumber": "^2.64.0",
     "axios": "^1.6.8",
     "cfonts": "^3.3.0",
