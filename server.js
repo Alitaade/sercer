@@ -1,4 +1,4 @@
-const { default: makeWASocket, DisconnectReason, makeInMemoryStore, Browsers, jidDecode, proto, getContentType, useMultiFileAuthState, downloadContentFromMessage } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, DisconnectReason, makeInMemoryStore, Browsers, jidDecode, proto, getContentType, useMultiFileAuthState, downloadContentFromMessage } = require("baileys");
 const pino = require('pino');
 const { Boom } = require('@hapi/boom');
 const fs = require('fs');
