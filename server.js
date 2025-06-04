@@ -121,49 +121,70 @@ async function startBotz() {
         logger: pino({ level: "silent" }),
         printQRInTerminal: false,
         auth: state,
-        connectTimeoutMs: 60000,
-        defaultQueryTimeoutMs: 0,
+        version: [2, 3000, 1017531287], // Ensure this is the latest version
+        browser: Browsers.ubuntu("Edge"),
         keepAliveIntervalMs: 10000,
         emitOwnEvents: true,
         fireInitQueries: true,
         generateHighQualityLinkPreview: true,
         syncFullHistory: true,
-        markOnlineOnConnect: true,
-        browser: ["Ubuntu", "Chrome", "20.0.04"],
+        markOnlineOnConnect: true
     });
 
     store.bind(Laxxyoffc.ev); // Bind event
 
-    // Handle pairing code request after connection is established
+    // Save credentials when updated
+    Laxxyoffc.ev.on('creds.update', saveCreds);
+
+    // Handle pairing only if not registered AND a phone number is provided
     if (!state.creds.registered) {
         const phoneNumber = process.env.PHONE_NUMBER;
         
         if (!phoneNumber) {
-            console.log('Phone number not found in environment variables!');
+            console.log(chalk.red('No phone number provided for pairing.'));
             console.log('Please set PHONE_NUMBER in your .env file');
             process.exit(1);
         }
 
-        console.log(`Using phone number: ${phoneNumber}`);
+        // Format phone number - remove '+' sign and spaces
+        const formattedPhoneNumber = phoneNumber.replace(/^\+/, '').replace(/\s+/g, '');
         
-        // Wait for connection to be established before requesting pairing code
-        Laxxyoffc.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect } = update;
-            
-            if (connection === 'connecting') {
-                console.log('Connecting to WhatsApp...');
-            }
-            
-            if (connection === 'open' && !state.creds.registered) {
-                try {
-                    let code = await Laxxyoffc.requestPairingCode(phoneNumber);
-                    code = code?.match(/.{1,4}/g)?.join("-") || code;
-                    console.log(`Pairing Code: ${code}`);
-                } catch (error) {
-                    console.log('Error requesting pairing code:', error.message);
+        if (!formattedPhoneNumber) {
+            console.log(chalk.red('Invalid phone number format.'));
+            process.exit(1);
+        }
+
+        console.log(chalk.yellow(`Generating pairing code for ${formattedPhoneNumber}...`));
+        
+        // Generate pairing code after a delay to ensure connection is stable
+        setTimeout(async () => {
+            try {
+                console.log('Requesting pairing code...');
+                const code = await Laxxyoffc.requestPairingCode(formattedPhoneNumber);
+                
+                if (code) {
+                    const formattedCode = code.match(/.{1,4}/g)?.join("-") || code;
+                    console.log(chalk.green(`Pairing Code: ${formattedCode}`));
+                    console.log(chalk.blue('Please enter this code in your WhatsApp app.'));
+                } else {
+                    throw new Error('Empty pairing code returned');
                 }
+            } catch (error) {
+                console.log(chalk.red('Error generating pairing code:', error.message));
+                console.log('Retrying in 5 seconds...');
+                setTimeout(async () => {
+                    try {
+                        const code = await Laxxyoffc.requestPairingCode(formattedPhoneNumber);
+                        if (code) {
+                            const formattedCode = code.match(/.{1,4}/g)?.join("-") || code;
+                            console.log(chalk.green(`Pairing Code: ${formattedCode}`));
+                        }
+                    } catch (retryError) {
+                        console.log(chalk.red('Retry failed:', retryError.message));
+                    }
+                }, 5000);
             }
-        });
+        }, 3000); // Wait 3 seconds before requesting pairing code
     }
 
     Laxxyoffc.ev.on('messages.upsert', async chatUpdate => {
@@ -211,8 +232,13 @@ async function startBotz() {
     Laxxyoffc.public = true;
 
     Laxxyoffc.serializeM = (m) => smsg(Laxxyoffc, m, store);
+    
     Laxxyoffc.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
+        
+        if (connection === 'connecting') {
+            console.log('Establishing connection to WhatsApp...');
+        }
         
         if (connection === 'close') {
             global.botConnected = false;
@@ -223,7 +249,7 @@ async function startBotz() {
                 console.log('Attempting to reconnect...');
                 setTimeout(() => startBotz(), 5000); // Wait 5 seconds before reconnecting
             } else if (reason === DisconnectReason.loggedOut) {
-                console.log('Bot logged out, please re-authenticate');
+                console.log('Bot logged out, please re-authenticate by deleting session and restarting');
             } else {
                 console.log(`Unknown DisconnectReason: ${reason}|${connection}`);
                 setTimeout(() => startBotz(), 10000); // Wait 10 seconds for unknown errors
@@ -232,10 +258,8 @@ async function startBotz() {
         
         if (connection === "open") {
             global.botConnected = true;
-            console.log(chalk.green.bold('Bot Successfully Connected. . . .'));
-        }
-        if (connection === 'connecting') {
-            console.log('Establishing connection to WhatsApp...');
+            console.log(chalk.green.bold('Bot Successfully Connected to WhatsApp!'));
+            
         }
     });
 
@@ -338,6 +362,9 @@ function smsg(Laxxyoffc, m, store) {
     return m;
 }
 
+
+
+
 let file = require.resolve(__filename);
 fs.watchFile(file, () => {
     fs.unwatchFile(file);
@@ -357,4 +384,5 @@ startBotz().catch(error => {
         });
     }, 10000);
 });
+
   
