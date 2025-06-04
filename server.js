@@ -240,7 +240,7 @@ async function startBotz() {
     //=========================================\\
     Laxxyoffc.downloadMediaMessage = async (message) => {
         let mime = (message.msg || message).mimetype || '';
-        let messageType = message.mtype ? message.mtype.replace(/Message/gi, '') : mime.split('/('/)[0];
+        let messageType = message.mtype ? message.mtype.replace(/Message/gi, '') : mime.split('/')[0];
         const stream = await downloadContentFromMessage(message, messageType);
         let buffer = Buffer.from([]);
         for await(const chunk of stream) {
