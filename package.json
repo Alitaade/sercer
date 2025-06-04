@@ -17,6 +17,7 @@
     "cfonts": "^3.3.0",
     "chalk": "^4.1.2",
     "cluster": "^0.7.7",
+    "dotenv": "latest",
         "webcrack": "^2.14.1",
              "js-confuser": "^1.7.3",
     "deobfuscator": "^2.4.5",
