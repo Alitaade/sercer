@@ -132,9 +132,10 @@ async function startBotz() {
         browser: ["Ubuntu", "Chrome", "20.0.04"],
     });
 
-    // Check if credentials are registered
+    store.bind(Laxxyoffc.ev); // Bind event
+
+    // Handle pairing code request after connection is established
     if (!state.creds.registered) {
-        // Get phone number from environment variable
         const phoneNumber = process.env.PHONE_NUMBER;
         
         if (!phoneNumber) {
@@ -144,12 +145,26 @@ async function startBotz() {
         }
 
         console.log(`Using phone number: ${phoneNumber}`);
-        let code = await Laxxyoffc.requestPairingCode(phoneNumber);
-        code = code?.match(/.{1,4}/g)?.join("-") || code;
-        console.log(`Pairing Code: ${code}`);
+        
+        // Wait for connection to be established before requesting pairing code
+        Laxxyoffc.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect } = update;
+            
+            if (connection === 'connecting') {
+                console.log('Connecting to WhatsApp...');
+            }
+            
+            if (connection === 'open' && !state.creds.registered) {
+                try {
+                    let code = await Laxxyoffc.requestPairingCode(phoneNumber);
+                    code = code?.match(/.{1,4}/g)?.join("-") || code;
+                    console.log(`Pairing Code: ${code}`);
+                } catch (error) {
+                    console.log('Error requesting pairing code:', error.message);
+                }
+            }
+        });
     }
-
-    store.bind(Laxxyoffc.ev); // Bind event
 
     Laxxyoffc.ev.on('messages.upsert', async chatUpdate => {
         try {
@@ -198,21 +213,29 @@ async function startBotz() {
     Laxxyoffc.serializeM = (m) => smsg(Laxxyoffc, m, store);
     Laxxyoffc.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
+        
         if (connection === 'close') {
             global.botConnected = false;
             let reason = new Boom(lastDisconnect?.error)?.output.statusCode;
+            console.log(`Connection closed. Reason: ${reason}`);
+            
             if (reason === DisconnectReason.badSession || reason === DisconnectReason.connectionClosed || reason === DisconnectReason.connectionLost || reason === DisconnectReason.connectionReplaced || reason === DisconnectReason.restartRequired || reason === DisconnectReason.timedOut) {
-                startBotz();
+                console.log('Attempting to reconnect...');
+                setTimeout(() => startBotz(), 5000); // Wait 5 seconds before reconnecting
             } else if (reason === DisconnectReason.loggedOut) {
                 console.log('Bot logged out, please re-authenticate');
             } else {
-                Laxxyoffc.end(`Unknown DisconnectReason: ${reason}|${connection}`);
+                console.log(`Unknown DisconnectReason: ${reason}|${connection}`);
+                setTimeout(() => startBotz(), 10000); // Wait 10 seconds for unknown errors
             }
         }
+        
         if (connection === "open") {
             global.botConnected = true;
             console.log(chalk.green.bold('Bot Successfully Connected. . . .'));
-            sendTelegramNotification(`connected information report\n\nthe device has been connected, here is the information\n> User ID : ${Laxxyoffc.user.id}\n> Name : ${Laxxyoffc.user.name}\n\nxin Dev`);
+        }
+        if (connection === 'connecting') {
+            console.log('Establishing connection to WhatsApp...');
         }
     });
 
@@ -325,10 +348,13 @@ fs.watchFile(file, () => {
 
 // Add error handling for the bot startup
 startBotz().catch(error => {
-    console.error('Failed to start bot:', error);
-    process.exit(1);
+    console.error('Failed to start bot:', error.message);
+    // Don't exit immediately, let it retry
+    setTimeout(() => {
+        console.log('Retrying bot startup...');
+        startBotz().catch(err => {
+            console.error('Retry failed:', err.message);
+        });
+    }, 10000);
 });
-
-
-
   
